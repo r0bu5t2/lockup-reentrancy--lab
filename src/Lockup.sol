@@ -24,7 +24,7 @@ contract Lockup{
     function deposit(uint256 amount) external {
         balances[msg.sender] += amount;
     }
-
+ 
     // 🔥 VULNERABLE WITHDRAW
     function withdraw() external {
         require(msg.sender == beneficiary, "not beneficiary");
