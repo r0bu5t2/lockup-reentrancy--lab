@@ -1,66 +1,90 @@
-## Foundry
+🔥 Lockup Reentrancy Lab
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A hands-on security research project demonstrating a real-world reentrancy vulnerability in a token lockup contract, along with a patched implementation.
 
-Foundry consists of:
+---
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+📌 Overview
 
-## Documentation
+This repo contains:
 
-https://book.getfoundry.sh/
+- ❌ Vulnerable lockup contract
+- 💥 Exploit using malicious token
+- ✅ Patched contract (CEI pattern)
+- 🧪 Foundry tests + invariant testing
 
-## Usage
+---
 
-### Build
+🧨 Vulnerability
 
-```shell
-$ forge build
-```
+The vulnerable contract performs:
 
-### Test
+token.transfer(...)
+balances[msg.sender] = 0;
 
-```shell
-$ forge test
-```
+This violates the Checks-Effects-Interactions pattern and enables reentrancy.
 
-### Format
+---
 
-```shell
-$ forge fmt
-```
+💥 Exploit Demo
 
-### Gas Snapshots
+Before exploit
 
-```shell
-$ forge snapshot
-```
+"Before" (screenshots/balances.png)
 
-### Anvil
+Exploit execution
 
-```shell
-$ anvil
-```
+"Exploit" (screenshots/exploit.png)
 
-### Deploy
+After exploit
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+Attacker drains more than intended due to repeated withdrawals.
 
-### Cast
+---
 
-```shell
-$ cast <subcommand>
-```
+🛡️ Fix
 
-### Help
+The patched version applies:
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+balances[msg.sender] = 0;
+token.transfer(...)
+
+Result
+
+"Fixed" (screenshots/fixed.png)
+
+---
+
+🚀 Run Locally
+
+forge build
+forge test -vv
+
+Start local chain:
+
+anvil
+
+Run exploit:
+
+./script.sh
+
+---
+
+🌿 Branches
+
+- "main" → vulnerable version
+- "patched" → fixed version
+
+---
+
+⚠️ Disclaimer
+
+This project is for educational purposes only.
+Do NOT use vulnerable code in production.
+
+---
+
+🧠 Key Takeaway
+
+«Reentrancy is not about whether callbacks exist —
+it’s about when state changes relative to external calls.»
